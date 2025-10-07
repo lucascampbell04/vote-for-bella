@@ -3,6 +3,15 @@
     "app/api/vote/route.ts": {
       "maxDuration": 300,
       "memory": 3008
+    },
+    "app/api/cron/vote/route.ts": {
+      "maxDuration": 10
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/vote",
+      "schedule": "*/5 * * * *"
+    }
+  ]
 }

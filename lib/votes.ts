@@ -1,5 +1,4 @@
-import { promises as fs } from 'fs';
-import path from 'path';
+import { createClient } from 'redis';
 
 /**
  * Vote record structure
@@ -21,45 +20,49 @@ export interface VoteStats {
 }
 
 /**
- * Reads and parses the votes CSV file
+ * Get or create Redis client
+ */
+let redisClient: Awaited<ReturnType<typeof createClient>> | null = null;
+
+async function getRedisClient() {
+  if (!redisClient) {
+    redisClient = createClient({
+      url: process.env.REDIS_URL || 'redis://localhost:6379'
+    });
+    await redisClient.connect();
+  }
+  return redisClient;
+}
+
+/**
+ * Reads all votes from Redis storage
  * 
  * @returns Promise resolving to parsed vote records
  */
-async function readVotesCSV(): Promise<VoteRecord[]> {
+async function readVotes(): Promise<VoteRecord[]> {
   try {
-    const csvPath = path.join(process.cwd(), 'votes.csv');
-    const fileContents = await fs.readFile(csvPath, 'utf-8');
+    const redis = await getRedisClient();
+    const votesJson = await redis.get('votes');
     
-    const lines = fileContents.trim().split('\n');
-    const headers = lines[0].split(',');
-    
-    const votes: VoteRecord[] = [];
-    
-    for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',');
-      if (values.length === headers.length) {
-        votes.push({
-          email: values[0].trim(),
-          timestamp: values[1].trim(),
-          vote_date: values[2].trim(),
-        });
-      }
+    if (!votesJson) {
+      return [];
     }
     
+    const votes = JSON.parse(votesJson) as VoteRecord[];
     return votes;
   } catch (error) {
-    console.error('Error reading votes CSV:', error);
+    console.error('Error reading votes from Redis:', error);
     return [];
   }
 }
 
 /**
- * Gets vote statistics from the CSV file
+ * Gets vote statistics from Redis storage
  * 
  * @returns Promise resolving to vote statistics
  */
 export async function getVoteStats(): Promise<VoteStats> {
-  const votes = await readVotesCSV();
+  const votes = await readVotes();
   
   // Get unique emails
   const uniqueEmails = new Set(votes.map(v => v.email));
@@ -79,26 +82,36 @@ export async function getVoteStats(): Promise<VoteStats> {
 }
 
 /**
- * Appends a new vote record to the CSV file
+ * Appends a new vote record to Redis storage
  * 
  * @param email - The email address that was used to vote
  * @returns Promise resolving to success/failure
  */
 export async function saveVote(email: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const csvPath = path.join(process.cwd(), 'votes.csv');
     const timestamp = new Date().toISOString();
     const voteDate = timestamp.split('T')[0];
     
-    // Create CSV row
-    const row = `${email},${timestamp},${voteDate}\n`;
+    // Create new vote record
+    const newVote: VoteRecord = {
+      email,
+      timestamp,
+      vote_date: voteDate,
+    };
     
-    // Append to file
-    await fs.appendFile(csvPath, row, 'utf-8');
+    // Get existing votes
+    const existingVotes = await readVotes();
+    
+    // Add new vote to the beginning (most recent first)
+    const updatedVotes = [newVote, ...existingVotes];
+    
+    // Save back to Redis
+    const redis = await getRedisClient();
+    await redis.set('votes', JSON.stringify(updatedVotes));
     
     return { success: true };
   } catch (error) {
-    console.error('Error saving vote to CSV:', error);
+    console.error('Error saving vote to Redis:', error);
     return { 
       success: false, 
       error: error instanceof Error ? error.message : 'Unknown error'
