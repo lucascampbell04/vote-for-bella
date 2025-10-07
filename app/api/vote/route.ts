@@ -4,7 +4,7 @@ import { deleteEmailAddress } from "@/app/actions/deleteEmailAddress";
 import { getFirstEmailContent } from "@/app/actions/getFirstEmailContent";
 import { saveVote } from "@/lib/votes";
 import chromium from "@sparticuz/chromium";
-import puppeteer from "puppeteer-core";
+import puppeteer, { Page } from "puppeteer-core";
 
 // Delay between server action calls (in milliseconds)
 const DELETE_DELAY_MS = Number(process.env.DELETE_DELAY_MS) || 1100; // Default: 1.1 seconds
@@ -281,6 +281,13 @@ export async function POST() {
     if (browser) {
       await browser.close();
     }
+
+    // Call server action: Delete the email after opening the page
+    const deleteResult = await deleteEmailAddress(result.email_address);
+
+    if (!deleteResult.success) {
+      console.error("Failed to delete email:", deleteResult.error);
+    }
     
     return NextResponse.json(
       { error: "Vote process did not complete successfully" },
@@ -296,10 +303,10 @@ export async function POST() {
 }
 
 // Robust React-safe typing helper
-async function trulyType(page: any, selector: string, text: string, delay: number = 80) {
+async function trulyType(page: Page, selector: string, text: string, delay: number = 80) {
   for (const ch of text) {
     const el = await page.waitForSelector(selector, { visible: true });
-    await el.focus();
+    await el?.focus();
     await page.keyboard.type(ch, { delay });
     await new Promise((resolve) => setTimeout(resolve, 30)); // tiny pause lets React process onChange
   }
