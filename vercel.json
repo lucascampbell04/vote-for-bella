@@ -1,6 +1,6 @@
 {
   "functions": {
-    "api/vote/route.ts": {
+    "app/api/vote/route.ts": {
       "maxDuration": 300,
       "memory": 3008
     }
