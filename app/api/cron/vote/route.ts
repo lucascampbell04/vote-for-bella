@@ -7,14 +7,9 @@ import { NextResponse } from "next/server";
  */
 export async function GET(request: Request) {
   try {
-    // Verify this is a cron request (Vercel sets this header)
-    const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
     // 1 in 10 chance (10%)
-    const randomNumber = Math.floor(Math.random() * 10);
+    const randomNumber = Math.floor(Math.random() * 12);
     const shouldVote = randomNumber === 0;
 
     console.log(`[CRON] Random number: ${randomNumber}, Should vote: ${shouldVote}`);
