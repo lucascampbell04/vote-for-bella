@@ -22,13 +22,8 @@ export async function GET(request: Request) {
       });
     }
 
-    // Trigger the vote by calling the vote API
-    const baseUrl = process.env.VERCEL_URL 
-      ? `https://${process.env.VERCEL_URL}` 
-      : 'http://localhost:3000';
-
     console.log('[CRON] Triggering vote...');
-    const voteResponse = await fetch(`${baseUrl}/api/vote`, {
+    const voteResponse = await fetch(`https://vote-for-bella.vercel.app/api/vote`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
