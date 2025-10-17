@@ -11,7 +11,7 @@
   "crons": [
     {
       "path": "/api/cron/vote",
-      "schedule": "*/5 * * * *"
+      "schedule": "*/1 * * * *"
     }
   ]
 }
