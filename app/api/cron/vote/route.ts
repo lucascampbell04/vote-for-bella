@@ -1,33 +1,44 @@
 import { NextResponse } from "next/server";
 
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export async function GET(request: Request) {
   try {
-    console.log('[CRON] Starting 3 parallel votes');
+    console.log('[CRON] Starting 3 staggered votes');
 
-    const votePromises = Array.from({ length: 3 }, async (_, index) => {
-      const i = index + 1;
-      try {
-        const voteResponse = await fetch(`https://vote-for-bella.vercel.app/api/vote`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
+    const votePromises = [];
 
-        const voteData = await voteResponse.json();
+    for (let i = 1; i <= 3; i++) {
+      const votePromise = (async () => {
+        try {
+          const voteResponse = await fetch(`https://vote-for-bella.vercel.app/api/vote`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
 
-        if (voteResponse.ok) {
-          console.log(`[CRON] Vote ${i} successful:`, voteData);
-          return { attempt: i, success: true, data: voteData };
-        } else {
-          console.error(`[CRON] Vote ${i} failed:`, voteData);
-          return { attempt: i, success: false, error: voteData };
+          const voteData = await voteResponse.json();
+
+          if (voteResponse.ok) {
+            console.log(`[CRON] Vote ${i} successful:`, voteData);
+            return { attempt: i, success: true, data: voteData };
+          } else {
+            console.error(`[CRON] Vote ${i} failed:`, voteData);
+            return { attempt: i, success: false, error: voteData };
+          }
+        } catch (error) {
+          console.error(`[CRON] Vote ${i} error:`, error);
+          return { attempt: i, success: false, error: String(error) };
         }
-      } catch (error) {
-        console.error(`[CRON] Vote ${i} error:`, error);
-        return { attempt: i, success: false, error: String(error) };
+      })();
+
+      votePromises.push(votePromise);
+
+      if (i < 3) {
+        await delay(5000);
       }
-    });
+    }
 
     const results = await Promise.all(votePromises);
     const successCount = results.filter(r => r.success).length;
