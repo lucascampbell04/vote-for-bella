@@ -28,6 +28,10 @@ export async function GET(request: Request) {
         console.error(`[CRON] Vote ${i} error:`, error);
         results.push({ attempt: i, success: false, error: String(error) });
       }
+
+      if (i < 3) {
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      }
     }
 
     const successCount = results.filter(r => r.success).length;
